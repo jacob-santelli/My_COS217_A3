@@ -1,8 +1,8 @@
+#include <stddef.h>
 #include <assert.h>
 #include <string.h>
 #include <stdlib.h>
 #include <stdio.h>
-#include <stddef.h>
 #include "symtable.h"
 
 struct SymTableNode
@@ -19,7 +19,7 @@ struct SymTable
 {
    /* The address of the first StackNode. */
    struct SymTableNode *psFirstNode;
-   int nodeCount;
+   size_t nodeCount;
 };
 
 /* SymTable_new must return a new SymTable object that contains no bindings, or NULL if insufficient memory is available. */
@@ -51,9 +51,14 @@ void SymTable_free(SymTable_T oSymTable) {
 
 /* SymTable_getLength must return the number of bindings in oSymTable. */
 size_t SymTable_getLength(SymTable_T oSymTable) {
+   assert(oSymTable != NULL);
+   return oSymTable->nodeCount;
+}
+
+   /*
    struct SymTableNode *tempNode;
    size_t length;
-   assert(oSymTable != NULL);
+   
 
    tempNode = oSymTable->psFirstNode;
    while (tempNode != NULL) {
@@ -61,7 +66,7 @@ size_t SymTable_getLength(SymTable_T oSymTable) {
       tempNode = tempNode->psNextNode;
    }
    return length;
-}
+   */
 
 /* If oSymTable does not contain a binding with key pcKey, then SymTable_put must add a new binding 
 to oSymTable consisting of key pcKey and value pvValue and return 1 (TRUE). Otherwise the function must 
@@ -90,13 +95,12 @@ int SymTable_put(SymTable_T oSymTable, const char *pcKey, const void *pvValue) {
 
    assert(oSymTable != NULL);
    assert(pcKey != NULL);
-   assert(pvValue != NULL);
 
    psNewNode = (struct SymTableNode*)malloc(sizeof(struct SymTableNode));
    if (psNewNode == NULL) 
       return 0;
 
-   if (!SymTable_contains(oSymTable, pcKey)) 
+   if (SymTable_contains(oSymTable, pcKey)) 
       return 0;
 
    pcTempKey = malloc(strlen(pcKey) + 1);
@@ -116,9 +120,23 @@ int SymTable_put(SymTable_T oSymTable, const char *pcKey, const void *pvValue) {
 /* If oSymTable contains a binding with key pcKey, then SymTable_replace must replace the binding's 
 value with pvValue and return the old value. Otherwise it must leave oSymTable unchanged and return NULL. */
 void *SymTable_replace(SymTable_T oSymTable, const char *pcKey, const void *pvValue) {
+ 
+   struct SymTableNode *tempNode;
+   const void *tempValue;
+
    assert(oSymTable != NULL);
    assert(pcKey != NULL);
-   assert(pvValue != NULL);   
+   
+   tempNode = oSymTable->psFirstNode;
+   while (tempNode != NULL) {
+      if(strcmp(tempNode->pcKey, pcKey) == 0) {
+         tempValue = tempNode->pvValue;
+         tempNode->pvValue = pvValue;
+         return (void *) tempValue;
+      }
+      tempNode = tempNode->psNextNode;
+   }
+   return NULL; 
 }
 
 /* SymTable_contains must return 1 (TRUE) if oSymTable contains a binding whose key is pcKey, and 0 (FALSE) otherwise. */
@@ -129,9 +147,12 @@ int SymTable_contains(SymTable_T oSymTable, const char *pcKey) {
 
    tempNode = oSymTable->psFirstNode;
    while (tempNode != NULL) {
-      if(strcmp(tempNode->pcKey, pcKey) == 0) return 1;
+      if(strcmp(tempNode->pcKey, pcKey) == 0) {
+         return 1;
+      }
       tempNode = tempNode->psNextNode;
    }
+   
    return 0;
 }
 
@@ -163,27 +184,31 @@ void *SymTable_remove(SymTable_T oSymTable, const char *pcKey) {
    assert(oSymTable != NULL);
    assert(pcKey != NULL);
 
+
    tempNode_current = oSymTable->psFirstNode;
+   tempNode_next = tempNode_current->psNextNode;
    if (strcmp(tempNode_current->pcKey, pcKey) == 0) {
-      oSymTable->psFirstNode = tempNode_current->psNextNode;
+      oSymTable->psFirstNode = tempNode_next;
       tempValue = tempNode_current->pvValue;
       free((char*)tempNode_current->pcKey);
       free(tempNode_current);
+      oSymTable->nodeCount--;
       return (void *) tempValue;
    }
+    
 
 
    while (tempNode_next != NULL) {
-      tempNode_next = tempNode_current->psNextNode;
-      /* not sure about this */
       if(strcmp(tempNode_next->pcKey, pcKey) == 0) {
-         tempValue = tempNode_current->pvValue;
-         tempNode_current->psNextNode = tempNode_next->psNextNode;
+         tempValue = tempNode_next->pvValue;
+         tempNode_current->psNextNode = (struct SymTableNode *) tempNode_next->psNextNode;
          free((char*)tempNode_next->pcKey);
          free(tempNode_next);
+         oSymTable->nodeCount--;
          return (void *) tempValue;
       }
       tempNode_current = tempNode_next;
+      tempNode_next = tempNode_current->psNextNode;
    }
 
 

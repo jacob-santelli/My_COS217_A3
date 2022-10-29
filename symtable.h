@@ -1,5 +1,9 @@
 #ifndef SYM_INCLUDED
 #define SYM_INCLUDED
+#include <stdio.h>
+
+typedef struct SymTable *SymTable_T;
+
 /* SymTable_new must return a new SymTable object that contains no bindings, or NULL if insufficient memory is available. */
 SymTable_T SymTable_new(void);
 
