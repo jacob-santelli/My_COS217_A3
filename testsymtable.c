@@ -225,7 +225,7 @@ static void testBasics(void)
    uLength = SymTable_getLength(oSymTable);
    ASSURE(uLength == 5);
 
-   /* Try to insert duplicate of key that had NULL value */
+   /* Try to insert duplicate of key that had NULL value  */
    iSuccessful = SymTable_put(oSymTable, acBrown, acShortstop);
    ASSURE(! iSuccessful);
 

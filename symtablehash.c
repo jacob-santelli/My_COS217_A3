@@ -101,6 +101,8 @@ static void SymTable_expand(SymTable_T oSymTable, size_t newSize) {
       }
    }
    
+   /* Insert newly created hash table into oSymTable and free the old
+      hash table */
    oSymTable->hashTableSize = newSize;
    free(oSymTable->hashTable);
    oSymTable->hashTable = table;

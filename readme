@@ -56,15 +56,15 @@ write "None."
 
    symtablelist.c: line 70: medium priority:
    Do you want to validate 'pvValue' through an assert?
-Because pvValue is a void pointer, there is no way to validate its value.
+pvValue may be NULL and still fall within the guidelines for the program
 
    symtablelist.c: line 104: medium priority:
    Do you want to validate 'pvValue' through an assert?
-Because pvValue is a void pointer, there is no way to validate its value.
+pvValue may be NULL and still fall within the guidelines for the program
 
    symtablelist.c: line 196: medium priority:
    Do you want to validate 'pvExtra' through an assert?
-Because pvExtra is a void pointer, there is no way to validate its value.
+pvExtra may be NULL and still fall within the guidelines for the program
 
 ------------------------------------------------------------------------
 What warnings does splint generate on symtablehash.c, and what are your
@@ -82,13 +82,15 @@ write "None."
 
    symtablehash.c: line 138: medium priority:
    Do you want to validate 'pvValue' through an assert?
-Because pvValue is a void pointer, there is no way to validate its value.
+pvValue may be NULL and still fall within the guidelines for the program
+
    symtablehash.c: line 187: medium priority:
    Do you want to validate 'pvValue' through an assert?
-Because pvValue is a void pointer, there is no way to validate its value.
+pvValue may be NULL and still fall within the guidelines for the program
+
    symtablehash.c: line 290: medium priority:
    Do you want to validate 'pvExtra' through an assert?
-Because pvExtra is a void pointer, there is no way to validate its value.
+pvExtra may be NULL and still fall within the guidelines for the program
 
 ------------------------------------------------------------------------
 What are the CPU times reported by testsymtable.c with binding counts
