@@ -3,7 +3,8 @@
 #define SYM_INCLUDED
 #include <stdio.h>
 
-/* A SymTable_T a collection of key-value bindings */
+/* A SymTable_T is a collection of keys (strings) bound to a set of
+   values, which can be of any type. */
 typedef struct SymTable *SymTable_T;
 
 /*  Return a new SymTable_T object, or NULL if insufficient memory is
