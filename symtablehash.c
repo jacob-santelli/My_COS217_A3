@@ -1,4 +1,5 @@
-/* ADD COMMENT HERE */
+/* Module defining a number of symbol table functions with using a
+   hash table implementation. */
 
 #include <stddef.h>
 #include <assert.h>
@@ -7,35 +8,42 @@
 #include <stdio.h>
 #include "symtable.h"
 
-/* ADD COMMENT HERE */
+/* All possible bucket numbers */
+static const size_t buckets[] = 
+{509, 1021, 2039, 4093, 8191, 16381, 32749, 65521};
+
+/* Each key-value binding is stored in a BucketNode. BucketNodes
+   are placed in buckets to form lists. */
 struct BucketNode
 {
-   /* The item and key. */
+   /* The binding's key. */
    const char *pcKey;
 
-   /* ADD COMMENT HERE */
+   /* The binding's value. */
    const void *pvValue;
 
-   /* The address of the next StackNode. */
+   /* The address of the next BucketNode. */
    struct BucketNode *psNextNode;
 };
 
-/* ADD COMMENT HERE */
+/* A SymTable tracks a hash table containing lists of key-value
+   bindings, in addition to tracking its resizing/size. */
 struct SymTable
 {
-   /* ADD COMMENT HERE */
+   /* The address of the first element of an array of 
+      BucketNodes, each element of which is a Bucket
+      in the SymTable's hash table */
    struct BucketNode **hashTable;
    
-   /* ADD COMMENT HERE */
+   /* The number of bindings in the SymTable. */
    size_t nodeCount;
 
-   /* ADD COMMENT HERE */
+   /* The number of buckets in the hash table. */
    size_t hashTableSize;
-
-   /* ADD COMMENT HERE */
-   int *resized;
 };
 
+/* Calculates and returns the proper hash of string pcKey given a
+   certain number of buckets (uBucketCount). */
 static size_t SymTable_hash(const char *pcKey, size_t uBucketCount)
 {
    const size_t HASH_MULTIPLIER = 65599;
@@ -50,51 +58,33 @@ static size_t SymTable_hash(const char *pcKey, size_t uBucketCount)
    return uHash % uBucketCount;
 }
 
-/* ADD COMMENT HERE */
 SymTable_T SymTable_new(void) {
    SymTable_T oSymTable;
-   int i;
 
    oSymTable = (SymTable_T)malloc(sizeof(struct SymTable));
    if (oSymTable == NULL) return NULL;
 
-   oSymTable->hashTable = malloc(sizeof(struct BucketNode*)*509);
+   oSymTable->hashTable = calloc(buckets[0],sizeof(struct BucketNode*));
    if (oSymTable->hashTable == NULL) return NULL;
 
-   oSymTable->resized = malloc(sizeof(int*)*7);
-   if (oSymTable->resized == NULL) return NULL;
-   for (i = 0; i < 7; i++) {
-      oSymTable->resized[i] = 0;
-   }
-
    oSymTable->nodeCount = 0;
-   oSymTable->hashTableSize = 509;
+   oSymTable->hashTableSize = buckets[0];
    return oSymTable;
 }
 
-SymTable_T SymTable_resize(SymTable_T oSymTable, size_t newSize) {
-   SymTable_T oSymTableNew;
+/* Resizes oSymTable's hash table to be newSize, copying all 
+   bindings into the new hash table. */
+static void SymTable_expand(SymTable_T oSymTable, size_t newSize) {
    struct BucketNode *psCurrentNode;
    struct BucketNode *psNextNode;
+   struct BucketNode **table;
    size_t hash;
    size_t hashNew;
 
-   oSymTableNew = oSymTable;
+   table = calloc(newSize,sizeof(struct BucketNode*));
+   if (table == NULL) return;
 
-   oSymTableNew->hashTable = malloc(sizeof(struct BucketNode*)*newSize);
-   if (oSymTableNew->hashTable == NULL) return oSymTable;
-
-   if (newSize == 1021) oSymTableNew->resized[0] = 1;
-   else if (newSize == 2039) oSymTableNew->resized[1] = 1;
-   else if (newSize == 4093) oSymTableNew->resized[2] = 1;
-   else if (newSize == 8191) oSymTableNew->resized[3] = 1;
-   else if (newSize == 16381) oSymTableNew->resized[4] = 1;
-   else if (newSize == 32749) oSymTableNew->resized[5] = 1;
-   else if (newSize == 65521) oSymTableNew->resized[6] = 1;
-   
-   oSymTableNew->nodeCount = 0;
-   oSymTableNew->hashTableSize = newSize;
-
+   /* Iterate through oSymTable and move all bindings into table */
    for(hash = 0; hash < oSymTable->hashTableSize; hash++) {
       if(oSymTable->hashTable[hash] != NULL) {
          psCurrentNode = oSymTable->hashTable[hash];
@@ -103,18 +93,19 @@ SymTable_T SymTable_resize(SymTable_T oSymTable, size_t newSize) {
 
             hashNew = SymTable_hash(psCurrentNode->pcKey, newSize);
             
-            psCurrentNode->psNextNode = oSymTableNew->hashTable[hashNew];
-            oSymTableNew->hashTable[hash] = psCurrentNode;
-            oSymTableNew->nodeCount++;
+            psCurrentNode->psNextNode = table[hashNew];
+            table[hashNew] = psCurrentNode;
 
             psCurrentNode = psNextNode;
          }
       }
    }
-   return oSymTableNew;
+   
+   oSymTable->hashTableSize = newSize;
+   free(oSymTable->hashTable);
+   oSymTable->hashTable = table;
 }
 
-/* ADD COMMENT HERE */
 void SymTable_free(SymTable_T oSymTable) {
    struct BucketNode *psCurrentNode;
    struct BucketNode *psNextNode;
@@ -135,75 +126,61 @@ void SymTable_free(SymTable_T oSymTable) {
          }
       }
    }
-   free(oSymTable->resized);
+   free(oSymTable->hashTable);
    free(oSymTable);
 }
 
-/* ADD COMMENT HERE */
 size_t SymTable_getLength(SymTable_T oSymTable) {
    assert(oSymTable != NULL);
    return oSymTable->nodeCount;
 }
 
-
-/* ADD COMMENT HERE */
 int SymTable_put(SymTable_T oSymTable, const char *pcKey, const void *pvValue) {
    struct BucketNode *psNewNode;
    char *pcTempKey;
    size_t hash;
+   long unsigned int i;
 
    assert(oSymTable != NULL);
    assert(pcKey != NULL);
 
    hash = SymTable_hash(pcKey, oSymTable->hashTableSize);
   
+   /* Allocate data to new node, make sure there is enough space */
    psNewNode = (struct BucketNode*)malloc(sizeof(struct BucketNode));
    if (psNewNode == NULL) 
       return 0;
 
-   if (SymTable_contains(oSymTable, pcKey)) 
+   if (SymTable_contains(oSymTable, pcKey)) { 
+      free(psNewNode); 
       return 0;
-
+   }
    pcTempKey = malloc(strlen(pcKey) + 1);
-   if (pcTempKey == NULL)
+   if (pcTempKey == NULL) {
+      free(psNewNode);
       return 0;
+   }
 
    strcpy(pcTempKey, pcKey);
 
    psNewNode->pcKey = pcTempKey;
    psNewNode->pvValue = pvValue;
+
+   /* insert the new binding into the symbol table */
    psNewNode->psNextNode = oSymTable->hashTable[hash];
    oSymTable->hashTable[hash] = psNewNode;
    oSymTable->nodeCount++;
 
-   if (oSymTable->nodeCount == oSymTable->hashTableSize + 1) {
-      if (oSymTable->resized[0] == 0) {
-         oSymTable = SymTable_resize(oSymTable, 1021);
-      }
-      else if (oSymTable->resized[1] == 0) {
-         oSymTable = SymTable_resize(oSymTable, 2039);
-      }
-      else if (oSymTable->resized[2] == 0) {
-         oSymTable = SymTable_resize(oSymTable, 4093);
-      }
-      else if (oSymTable->resized[3] == 0) {
-         oSymTable = SymTable_resize(oSymTable, 8191);
-      }
-      else if (oSymTable->resized[4] == 0) {
-         oSymTable = SymTable_resize(oSymTable, 16381);
-      }
-      else if (oSymTable->resized[5] == 0) {
-         oSymTable = SymTable_resize(oSymTable, 32749);
-      }
-      else if (oSymTable->resized[6] == 0) {
-         oSymTable = SymTable_resize(oSymTable, 65521);
+   if (oSymTable->nodeCount == oSymTable->hashTableSize) {
+      for (i = 0; i < (sizeof(buckets)/sizeof(buckets[0]) - 1); i++) {
+         if (oSymTable->nodeCount == buckets[i])
+         SymTable_expand(oSymTable, buckets[i + 1]);
       }
    }
 
    return 1;
 }
 
-/* ADD COMMENT HERE */
 void *SymTable_replace(SymTable_T oSymTable, const char *pcKey, const void *pvValue) {
    struct BucketNode *tempNode;
    const void *tempValue;
@@ -226,7 +203,6 @@ void *SymTable_replace(SymTable_T oSymTable, const char *pcKey, const void *pvVa
    return NULL; 
 }
 
-/* ADD COMMENT HERE */
 int SymTable_contains(SymTable_T oSymTable, const char *pcKey) {
    struct BucketNode *tempNode;
    size_t hash;
@@ -247,8 +223,6 @@ int SymTable_contains(SymTable_T oSymTable, const char *pcKey) {
    return 0;
 }
 
-
-/* ADD COMMENT HERE */
 void *SymTable_get(SymTable_T oSymTable, const char *pcKey) {
    struct BucketNode *tempNode;
    size_t hash;
@@ -263,10 +237,9 @@ void *SymTable_get(SymTable_T oSymTable, const char *pcKey) {
       if(strcmp(tempNode->pcKey, pcKey) == 0) return (void*) tempNode->pvValue;
       tempNode = tempNode->psNextNode;
    }
-   return 0;
+   return NULL;
 }
 
-/* ADD COMMENT HERE */
 void *SymTable_remove(SymTable_T oSymTable, const char *pcKey) {
    struct BucketNode *tempNode_current;
    struct BucketNode *tempNode_next;
@@ -311,7 +284,6 @@ void *SymTable_remove(SymTable_T oSymTable, const char *pcKey) {
    return NULL;
 }
 
-/* ADD COMMENT HERE */
 void SymTable_map(SymTable_T oSymTable, void (*pfApply)(const char *pcKey, void *pvValue, void *pvExtra), const void *pvExtra) {
    struct BucketNode *tempNode_current;
    size_t hash;
